@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>VoltGo — EV Companion</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    :root{--bg:#07111f;--surface:#0e1d30;--card:#132030;--border:#1e3048;--accent:#00d98b;--accent2:#38bdf8;--danger:#f43f5e;--warn:#fb923c;--text:#ddeeff;--muted:#6b8cad;--radius:14px;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+    *,*::before,*::after{box-sizing:inherit;margin:0;padding:0}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;scroll-behavior:smooth}
+    h1,h2,h3,h4,button,label{font-family:'Space Grotesk',sans-serif}
+    nav{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:200;background:rgba(7,17,31,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:13px 20px}
+    .logo{font-size:1.2rem;font-weight:700;color:var(--accent);letter-spacing:-0.4px}
+    .logo span{color:var(--text)}
+    .battery-pill{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:600}
+    .battery-bar{width:28px;height:10px;border:1.5px solid var(--accent);border-radius:3px;position:relative}
+    .battery-bar::after{content:'';position:absolute;left:2px;top:2px;bottom:2px;width:var(--pct,72%);background:var(--accent);border-radius:1px;transition:width .5s}
+    .battery-bar::before{content:'';position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:3px;height:5px;background:var(--accent);border-radius:0 2px 2px 0}
+    .bottom-nav{position:fixed;bottom:env(safe-area-inset-bottom,0px);left:0;right:0;z-index:200;background:rgba(14,29,48,.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex}
+    .nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 8px;cursor:pointer;border:none;background:none;color:var(--muted);font-size:0.62rem;font-weight:600;transition:color .2s;letter-spacing:.3px}
+    .nav-tab.active{color:var(--accent)}
+    .nav-tab svg{width:21px;height:21px}
+    .page{display:none;min-height:100vh;padding:70px 0 80px}
+    .page.active{display:block}
+    .page-inner{max-width:860px;margin:0 auto;padding:24px 16px}
+    .page-title{font-size:1.55rem;font-weight:700;margin-bottom:4px}
+    .page-sub{color:var(--muted);font-size:0.88rem;margin-bottom:22px;line-height:1.6}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+    .field label{font-size:0.75rem;color:var(--muted);font-weight:600}
+    .field input,.field select,.field textarea{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:9px;font-size:0.9rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;width:100%}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+    .field input::placeholder,.field textarea::placeholder{color:var(--muted)}
+    .field select option{background:#0e1d30}
+    .btn{border:none;border-radius:9px;padding:12px 20px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:0.9rem;transition:opacity .2s,transform .1s;width:100%}
+    .btn:active{transform:scale(.98)}
+    .btn-green{background:var(--accent);color:#000}
+    .btn-blue{background:var(--accent2);color:#000}
+    .btn-red{background:var(--danger);color:#fff}
+    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+    .btn:hover{opacity:.88}
+    #map{height:280px;z-index:1}
+    .search-row{display:flex;gap:8px;padding:14px}
+    .search-row input{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:9px;font-size:0.88rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+    .search-row input:focus{border-color:var(--accent)}
+    .search-row input::placeholder{color:var(--muted)}
+    .search-row button{background:var(--accent);color:#000;border:none;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;white-space:nowrap;font-size:0.82rem}
+    .loc-btn{background:var(--accent2);color:#000;border:none;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.82rem}
+    .filter-row{display:flex;gap:6px;padding:0 14px 12px;overflow-x:auto;scrollbar-width:none}
+    .filter-row::-webkit-scrollbar{display:none}
+    .chip{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s}
+    .chip.on{background:rgba(0,217,139,.12);border-color:var(--accent);color:var(--accent)}
+    .station-list{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
+    .st-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 14px;cursor:pointer;transition:border-color .2s;display:flex;justify-content:space-between;align-items:center}
+    .st-card:hover,.st-card.sel{border-color:var(--accent)}
+    .st-name{font-weight:700;font-size:0.9rem;margin-bottom:3px}
+    .st-meta{font-size:0.72rem;color:var(--muted)}
+    .st-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+    .dot-g{background:var(--accent)}.dot-y{background:var(--warn)}.dot-r{background:var(--danger)}
+    .avail{font-size:0.72rem;font-weight:700}
+    .avail-g{color:var(--accent)}.avail-y{color:var(--warn)}.avail-r{color:var(--danger)}
+    .nav-btn{background:var(--accent2);color:#000;border:none;border-radius:6px;padding:5px 11px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif}
+    .no-results{text-align:center;padding:30px;color:var(--muted);font-size:0.88rem}
+    .st-popup{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:10px;display:none}
+    .st-popup.show{display:block}
+    .popup-h{font-size:1rem;font-weight:700;margin-bottom:8px}
+    .popup-row{display:flex;justify-content:space-between;font-size:0.8rem;padding:5px 0;border-bottom:1px solid var(--border)}
+    .popup-row:last-of-type{border:none}
+    .popup-label{color:var(--muted)}
+    .popup-val{font-weight:600}
+    .sos-wrap{display:flex;flex-direction:column;align-items:center;gap:20px;padding:10px 0}
+    .sos-outer{position:relative;display:flex;align-items:center;justify-content:center;width:180px;height:180px}
+    .sos-ripple{position:absolute;width:100%;height:100%;border-radius:50%;border:2px solid var(--danger);animation:ripple 2s ease-out infinite;opacity:0}
+    .sos-ripple:nth-child(2){animation-delay:.6s}
+    .sos-ripple:nth-child(3){animation-delay:1.2s}
+    @keyframes ripple{0%{transform:scale(.6);opacity:.6}100%{transform:scale(1.5);opacity:0}}
+    .sos-btn{width:140px;height:140px;border-radius:50%;border:none;cursor:pointer;background:radial-gradient(circle,#dc2626,#991b1b);box-shadow:0 0 40px rgba(244,63,94,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;z-index:2;transition:transform .15s,box-shadow .15s}
+    .sos-btn:hover{transform:scale(1.04)}
+    .sos-btn:active{transform:scale(.96)}
+    .sos-label{font-size:2rem;font-weight:800;color:#fff;letter-spacing:2px}
+    .sos-sub{font-size:0.62rem;color:rgba(255,255,255,.65);font-family:'Inter',sans-serif}
+    .sos-status-box{width:100%;max-width:420px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:14px 18px;text-align:center;display:none}
+    .sos-status-box.show{display:block}
+    .sos-status-box p{color:var(--danger);font-weight:700;font-size:0.88rem}
+    .sos-gps{font-size:0.72rem;color:var(--muted);margin-top:4px}
+    .contacts-section{width:100%;max-width:420px}
+    .contacts-section h3{font-size:0.85rem;color:var(--muted);margin-bottom:10px;font-weight:600}
+    .contact-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .c-name{font-weight:600;font-size:0.88rem}
+    .c-sub{font-size:0.72rem;color:var(--muted);margin-top:2px}
+    .call-btn{background:rgba(244,63,94,.15);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:7px;padding:6px 13px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif}
+    .sos-form{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-top:4px}
+    .sos-form h3{font-size:0.95rem;font-weight:700;margin-bottom:14px}
+    .pay-card-vis{background:linear-gradient(135deg,#1a3a6b,#0c2040);border:1px solid var(--border);border-radius:var(--radius);padding:26px 22px;min-height:170px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;margin-bottom:16px}
+    .pay-card-vis::before{content:'';position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:rgba(56,189,248,.08)}
+    .chip-img{width:38px;height:28px;background:linear-gradient(135deg,#d4a853,#a07020);border-radius:5px;margin-bottom:18px}
+    .card-num-display{font-family:'Space Grotesk',sans-serif;font-size:1.05rem;letter-spacing:5px;color:rgba(255,255,255,.85);margin-bottom:16px}
+    .card-bottom-row{display:flex;justify-content:space-between;align-items:flex-end}
+    .card-field-label{font-size:0.6rem;color:rgba(255,255,255,.4);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+    .card-field-val{font-size:0.82rem;color:rgba(255,255,255,.8);font-weight:600}
+    .card-brand{font-size:1.1rem;font-weight:800;color:rgba(255,255,255,.5)}
+    .pay-form-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+    .pay-form-card h3{font-size:0.95rem;font-weight:700;margin-bottom:16px}
+    .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px}
+    .sum-row{display:flex;justify-content:space-between;font-size:0.83rem;padding:5px 0}
+    .sum-row.total{border-top:1px solid var(--border);margin-top:6px;padding-top:10px;font-weight:700;font-size:0.95rem}
+    .sum-label{color:var(--muted)}
+    .tx-list{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:20px}
+    .tx-header{padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem}
+    .tx-item{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--border)}
+    .tx-item:last-child{border:none}
+    .tx-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.95rem;margin-right:12px;flex-shrink:0}
+    .tx-left{display:flex;align-items:center}
+    .tx-name{font-size:0.83rem;font-weight:600}
+    .tx-date{font-size:0.7rem;color:var(--muted);margin-top:2px}
+    .tx-amt{font-weight:700;font-size:0.9rem;color:var(--accent)}
+    .payment-tabs{display:flex;gap:8px;margin-bottom:16px}
+    .pay-tab{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;cursor:pointer;font-size:0.8rem;font-weight:600;transition:all .2s}
+    .pay-tab.on{background:rgba(0,217,139,.12);border-color:var(--accent);color:var(--accent)}
+    .pay-section{display:none}
+    .pay-section.show{display:block}
+    .charger-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:16px}
+    .charger-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s}
+    .charger-card:hover{border-color:var(--accent)}
+    .charger-card.hide{display:none}
+    .ch-badge{display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;width:fit-content}
+    .ch-speed{color:var(--accent);font-size:0.78rem;font-weight:700}
+    .ch-name{font-size:0.95rem;font-weight:700}
+    .ch-desc{color:var(--muted);font-size:0.78rem;line-height:1.55}
+    .ch-tags{display:flex;flex-wrap:wrap;gap:4px}
+    .ch-tag{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.18);color:var(--accent2);padding:2px 7px;border-radius:4px;font-size:0.63rem;font-weight:600}
+    .ch-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:10px;border-top:1px solid var(--border)}
+    .ch-price{font-weight:700;color:var(--accent);font-size:0.88rem}
+    .ch-avail{font-size:0.72rem;color:var(--muted)}
+    .type-filter{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:4px}
+    .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#000;padding:11px 22px;border-radius:10px;font-weight:700;font-size:0.83rem;opacity:0;transition:all .3s;z-index:999;pointer-events:none;white-space:nowrap;max-width:88vw;text-align:center}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.err{background:var(--danger);color:#fff}
+    .custom-marker{background:var(--accent);width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 4px rgba(0,217,139,.3)}
+    .custom-marker.busy{background:var(--warn);box-shadow:0 0 0 4px rgba(251,146,60,.3)}
+    .custom-marker.full{background:var(--danger);box-shadow:0 0 0 4px rgba(244,63,94,.3)}
+    .my-marker{background:var(--accent2);width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 5px rgba(56,189,248,.3)}
+    .leaflet-popup-content-wrapper{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+    .leaflet-popup-tip{background:var(--card)}
+    .leaflet-popup-content{margin:12px 16px;font-family:'Inter',sans-serif;font-size:0.82rem;min-width:160px}
+    .pp-h{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.92rem;margin-bottom:6px;color:var(--text)}
+    .pp-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-size:0.8rem}
+    .pp-row:last-child{border:none}
+    .pl{color:var(--muted)}.pr{font-weight:600;color:var(--text)}
+    .pp-nav{background:var(--accent);color:#000;border:none;border-radius:7px;padding:7px 14px;font-weight:700;cursor:pointer;margin-top:10px;width:100%;font-family:'Space Grotesk',sans-serif;font-size:0.82rem}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Volt<span>Go</span></div>
+  <div class="battery-pill">
+    <div class="battery-bar" id="battBar" style="--pct:72%"></div>
+    <span id="battPct">72%</span>
+  </div>
+</nav>
+
+<!-- PAGE 1: STATION FINDER -->
+<div class="page active" id="pg-stations">
+  <div class="page-inner">
+    <div class="page-title">Nearest Stations</div>
+    <div class="page-sub">Real map · type any location · tap pins for details</div>
+  </div>
+  <div class="card" style="margin:0 16px 16px">
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="Enter city, area, or pincode…" onkeydown="if(event.key==='Enter')searchLocation()"/>
+      <button onclick="searchLocation()">Search</button>
+      <button class="loc-btn" onclick="getMyLocation()" title="Use my GPS location">📍</button>
+    </div>
+    <div class="filter-row">
+      <div class="chip on" onclick="applyFilter(this,'all')">All</div>
+      <div class="chip" onclick="applyFilter(this,'available')">Available Now</div>
+      <div class="chip" onclick="applyFilter(this,'fast')">Fast DC</div>
+      <div class="chip" onclick="applyFilter(this,'ac')">AC Slow</div>
+      <div class="chip" onclick="applyFilter(this,'free')">Free Parking</div>
+    </div>
+    <div id="map"></div>
+    <div class="station-list" id="stationList"></div>
+    <div class="st-popup" id="stPopup"></div>
+  </div>
+</div>
+
+<!-- PAGE 2: SOS -->
+<div class="page" id="pg-sos">
+  <div class="page-inner">
+    <div class="page-title">SOS Emergency</div>
+    <div class="page-sub">Sends your live GPS, battery %, and vehicle ID to emergency contacts instantly.</div>
+    <div class="sos-wrap">
+      <div class="sos-outer">
+        <div class="sos-ripple"></div>
+        <div class="sos-ripple"></div>
+        <div class="sos-ripple"></div>
+        <button class="sos-btn" onclick="triggerSOS()">
+          <div class="sos-label">SOS</div>
+          <div class="sos-sub">Tap to activate</div>
+        </button>
+      </div>
+      <div class="sos-status-box" id="sosBox">
+        <p>🚨 Alert Sent — Help is on the way</p>
+        <div class="sos-gps" id="sosGPS">Fetching GPS…</div>
+      </div>
+      <div class="contacts-section">
+        <h3>Emergency Contacts</h3>
+        <div class="contact-card">
+          <div><div class="c-name">🚗 Roadside Assist</div><div class="c-sub">1800-EV-HELP (24/7)</div></div>
+          <button class="call-btn" onclick="fakeCall('Roadside Assist','1800-EV-HELP')">Call</button>
+        </div>
+        <div class="contact-card">
+          <div><div class="c-name">👤 <span id="contact1Name">Family Contact</span></div><div class="c-sub" id="contact1Num">Not set — add below</div></div>
+          <button class="call-btn" onclick="fakeCall(document.getElementById('contact1Name').textContent,document.getElementById('contact1Num').textContent)">Call</button>
+        </div>
+        <div class="contact-card">
+          <div><div class="c-name">🏥 Ambulance</div><div class="c-sub">112 / 108</div></div>
+          <button class="call-btn" onclick="window.open('tel:112')">Call</button>
+        </div>
+      </div>
+      <div class="sos-form">
+        <h3>Add Emergency Contact</h3>
+        <div class="field"><label>Contact Name</label><input type="text" id="ecName" placeholder="e.g. Priya Sharma"/></div>
+        <div class="field"><label>Phone Number</label><input type="tel" id="ecPhone" placeholder="+91 98XXX XXXXX"/></div>
+        <button class="btn btn-red" onclick="saveContact()">Save Contact</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: PAYMENT -->
+<div class="page" id="pg-payment">
+  <div class="page-inner">
+    <div class="page-title">Payment</div>
+    <div class="page-sub">Enter your real card details · UPI ID · or top-up wallet.</div>
+    <div class="payment-tabs">
+      <div class="pay-tab on" onclick="switchPayTab(this,'card')">💳 Card</div>
+      <div class="pay-tab" onclick="switchPayTab(this,'upi')">📱 UPI</div>
+      <div class="pay-tab" onclick="switchPayTab(this,'wallet')">👛 Wallet</div>
+    </div>
+    <!-- CARD -->
+    <div class="pay-section show" id="sec-card">
+      <div class="pay-card-vis">
+        <div class="chip-img"></div>
+        <div class="card-num-display" id="dispNum">•••• &nbsp;•••• &nbsp;•••• &nbsp;••••</div>
+        <div class="card-bottom-row">
+          <div><div class="card-field-label">Card Holder</div><div class="card-field-val" id="dispName">YOUR NAME</div></div>
+          <div><div class="card-field-label">Expires</div><div class="card-field-val" id="dispExp">MM/YY</div></div>
+          <div class="card-brand" id="dispBrand">VISA</div>
+        </div>
+      </div>
+      <div class="pay-form-card">
+        <h3>Card Details</h3>
+        <div class="field"><label>Card Number</label>
+          <input type="text" id="cardNum" maxlength="19" placeholder="1234 5678 9012 3456" oninput="fmtCard(this)"/></div>
+        <div class="field"><label>Cardholder Name</label>
+          <input type="text" id="cardName" placeholder="Full name on card" oninput="document.getElementById('dispName').textContent=this.value.toUpperCase()||'YOUR NAME'"/></div>
+        <div class="form-row-2">
+          <div class="field"><label>Expiry</label>
+            <input type="text" id="cardExp" maxlength="5" placeholder="MM/YY" oninput="fmtExpiry(this)"/></div>
+          <div class="field"><label>CVV</label>
+            <input type="password" id="cardCvv" maxlength="3" placeholder="•••"/></div>
+        </div>
+      </div>
+    </div>
+    <!-- UPI -->
+    <div class="pay-section" id="sec-upi">
+      <div class="pay-form-card">
+        <h3>UPI Payment</h3>
+        <div class="field"><label>UPI ID</label>
+          <input type="text" id="upiId" placeholder="yourname@upi  or  9876543210@paytm"/></div>
+        <div style="text-align:center;padding:20px 0">
+          <svg width="110" height="110" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#0e1d30" rx="8"/>
+            <rect x="5" y="5" width="30" height="30" rx="3" fill="none" stroke="#00d98b" stroke-width="4"/>
+            <rect x="12" y="12" width="16" height="16" fill="#00d98b"/>
+            <rect x="65" y="5" width="30" height="30" rx="3" fill="none" stroke="#00d98b" stroke-width="4"/>
+            <rect x="72" y="12" width="16" height="16" fill="#00d98b"/>
+            <rect x="5" y="65" width="30" height="30" rx="3" fill="none" stroke="#00d98b" stroke-width="4"/>
+            <rect x="12" y="72" width="16" height="16" fill="#00d98b"/>
+            <rect x="42" y="5" width="5" height="5" fill="#00d98b"/>
+            <rect x="51" y="5" width="5" height="5" fill="#00d98b"/>
+            <rect x="60" y="5" width="5" height="5" fill="#00d98b"/>
+            <rect x="42" y="14" width="5" height="5" fill="#00d98b"/>
+            <rect x="60" y="14" width="5" height="5" fill="#00d98b"/>
+            <rect x="42" y="23" width="14" height="5" fill="#00d98b"/>
+            <rect x="42" y="42" width="22" height="5" fill="#00d98b"/>
+            <rect x="42" y="51" width="5" height="14" fill="#00d98b"/>
+            <rect x="55" y="51" width="14" height="5" fill="#00d98b"/>
+            <rect x="65" y="42" width="5" height="5" fill="#00d98b"/>
+            <rect x="75" y="42" width="20" height="5" fill="#00d98b"/>
+            <rect x="65" y="60" width="5" height="5" fill="#00d98b"/>
+            <rect x="75" y="55" width="5" height="14" fill="#00d98b"/>
+            <rect x="84" y="60" width="11" height="5" fill="#00d98b"/>
+            <rect x="42" y="68" width="20" height="5" fill="#00d98b"/>
+            <rect x="42" y="77" width="5" height="18" fill="#00d98b"/>
+            <rect x="51" y="80" width="14" height="5" fill="#00d98b"/>
+            <rect x="65" y="74" width="5" height="14" fill="#00d98b"/>
+            <rect x="74" y="74" width="21" height="5" fill="#00d98b"/>
+            <rect x="74" y="83" width="5" height="12" fill="#00d98b"/>
+            <rect x="87" y="83" width="8" height="5" fill="#00d98b"/>
+          </svg>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:8px">Scan with PhonePe · GPay · Paytm</div>
+        </div>
+      </div>
+    </div>
+    <!-- WALLET -->
+    <div class="pay-section" id="sec-wallet">
+      <div class="pay-form-card">
+        <h3>VoltGo Wallet</h3>
+        <div style="text-align:center;padding:16px 0">
+          <div style="font-size:2.4rem;font-weight:800;color:var(--accent);font-family:'Space Grotesk',sans-serif" id="walletBal">₹480.00</div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Available Balance</div>
+        </div>
+        <div class="field"><label>Add Money (₹)</label>
+          <input type="number" id="addMoney" placeholder="Enter amount (min ₹50)" min="50" max="5000"/></div>
+        <button class="btn btn-blue" onclick="addWalletMoney()">Add Money to Wallet</button>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="field" style="margin-bottom:0">
+        <label>Charging Duration (minutes)</label>
+        <input type="number" id="chargeMins" value="30" min="5" max="180" oninput="calcTotal()"/>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="sum-row"><span class="sum-label">Session (<span id="sumMins">30</span> min @ ₹4/min)</span><span id="sumSession">₹120.00</span></div>
+      <div class="sum-row"><span class="sum-label">Fast charge fee</span><span id="sumFast">₹60.00</span></div>
+      <div class="sum-row"><span class="sum-label">Platform fee</span><span>₹5.00</span></div>
+      <div class="sum-row total"><span>Total</span><span id="sumTotal">₹185.00</span></div>
+    </div>
+    <button class="btn btn-green" onclick="processPayment()" style="margin-bottom:16px">Pay <span id="payBtnAmt">₹185.00</span></button>
+    <div class="tx-list">
+      <div class="tx-header">Transaction History</div>
+      <div id="txList">
+        <div class="tx-item"><div class="tx-left"><div class="tx-icon" style="background:rgba(0,217,139,.1)">⚡</div><div><div class="tx-name">PowerGrid Hub — 38 min</div><div class="tx-date">27 Sep 2026, 18:30</div></div></div><div class="tx-amt">₹186.00</div></div>
+        <div class="tx-item"><div class="tx-left"><div class="tx-icon" style="background:rgba(56,189,248,.1)">⚡</div><div><div class="tx-name">QuickCharge Pro — 55 min</div><div class="tx-date">25 Sep 2026, 09:15</div></div></div><div class="tx-amt">₹247.00</div></div>
+        <div class="tx-item"><div class="tx-left"><div class="tx-icon" style="background:rgba(251,146,60,.1)">⚡</div><div><div class="tx-name">ZapStation — 20 min</div><div class="tx-date">22 Sep 2026, 14:00</div></div></div><div class="tx-amt">₹95.00</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 4: CHARGER TYPES -->
+<div class="page" id="pg-types">
+  <div class="page-inner">
+    <div class="page-title">Charger Types</div>
+    <div class="page-sub">Tap a filter to find stations matching your EV's connector.</div>
+    <div class="type-filter" id="typeFilter">
+      <div class="chip on" onclick="filterType(this,'all')">All Types</div>
+      <div class="chip" onclick="filterType(this,'ac')">AC Slow</div>
+      <div class="chip" onclick="filterType(this,'dc')">DC Fast</div>
+      <div class="chip" onclick="filterType(this,'ccs')">CCS2</div>
+      <div class="chip" onclick="filterType(this,'chademo')">CHAdeMO</div>
+      <div class="chip" onclick="filterType(this,'type2')">Type 2</div>
+      <div class="chip" onclick="filterType(this,'bharat')">Bharat</div>
+    </div>
+    <div class="charger-grid" id="chargerGrid"></div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-tab active" onclick="goPage('stations',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>Stations
+  </button>
+  <button class="nav-tab" onclick="goPage('sos',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>SOS
+  </button>
+  <button class="nav-tab" onclick="goPage('payment',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Pay
+  </button>
+  <button class="nav-tab" onclick="goPage('types',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M4.93 4.93a10 10 0 000 14.14"/></svg>Types
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STATIONS=[
+  {id:0,name:'PowerGrid Hub',addr:'MG Road, Sector 14',lat:28.6139,lng:77.2090,avail:8,total:10,status:'g',types:['CCS2','Type 2'],speed:'DC 50kW',price:'₹4.5/min',parking:true,filter:['available','fast']},
+  {id:1,name:'QuickCharge Pro',addr:'NH-48, Near City Mall',lat:28.6200,lng:77.2200,avail:2,total:8,status:'y',types:['CHAdeMO','CCS2'],speed:'DC 25kW',price:'₹3.8/min',parking:false,filter:['available','fast']},
+  {id:2,name:'ZapStation Delta',addr:'Industrial Area Phase 2',lat:28.6050,lng:77.2150,avail:0,total:6,status:'r',types:['CCS2'],speed:'DC 50kW',price:'₹5.0/min',parking:true,filter:['fast']},
+  {id:3,name:'TeslaNode East',addr:'IT Park, Block C',lat:28.6250,lng:77.1950,avail:5,total:5,status:'g',types:['Type 2','Bharat AC'],speed:'AC 22kW',price:'₹4.2/min',parking:true,filter:['available','ac','free']},
+  {id:4,name:'GreenVolt Station',addr:'Connaught Place',lat:28.6315,lng:77.2167,avail:3,total:6,status:'y',types:['Bharat AC','Bharat DC'],speed:'DC 15kW',price:'₹3.0/min',parking:false,filter:['available','fast','ac']},
+  {id:5,name:'Suncharge Plus',addr:'Dwarka Sector 10',lat:28.5921,lng:77.0460,avail:7,total:8,status:'g',types:['CCS2','CHAdeMO','Type 2'],speed:'DC 100kW',price:'₹5.5/min',parking:true,filter:['available','fast','free']},
+];
+const CHARGER_TYPES=[
+  {key:'bharat-ac',cat:'bharat ac',icon:'🔌',name:'Bharat AC-001',speed:'3.3 kW',desc:'Standard Indian AC connector. Affordable and widely available at homes and public spots across India.',tags:['Tata Nexon EV','MG ZS EV','Hyundai Kona'],price:'₹2/kWh',stations:320},
+  {key:'bharat-dc',cat:'bharat dc',icon:'⚡',name:'Bharat DC-001',speed:'15 kW',desc:'Mid-speed DC charger under the Indian Bharat standard. Common at petrol stations and highways.',tags:['Tata Nexon EV','MG ZS EV'],price:'₹3.5/kWh',stations:210},
+  {key:'ccs2',cat:'ccs dc',icon:'🔋',name:'CCS Combo 2',speed:'50–350 kW',desc:'The global standard for DC fast charging. Charges 80% in ~30 min. Found at premium stations.',tags:['BMW iX','Hyundai Ioniq 5','Kia EV6','Volvo XC40'],price:'₹5/kWh',stations:480},
+  {key:'chademo',cat:'chademo dc',icon:'🇯🇵',name:'CHAdeMO',speed:'50–100 kW',desc:'Japanese DC standard used by Nissan and Mitsubishi. Being phased out in favour of CCS2.',tags:['Nissan Leaf','Mitsubishi Outlander'],price:'₹4.5/kWh',stations:95},
+  {key:'type2',cat:'type2 ac',icon:'🔗',name:'IEC Type 2 (AC)',speed:'7.4–22 kW',desc:'European AC standard. Very common at workplaces and homes. Also used for Tesla in India.',tags:['Mercedes EQC','Audi e-tron','Tesla Model 3','Volvo'],price:'₹3/kWh',stations:560},
+  {key:'tesla-sc',cat:'type2 dc',icon:'🚗',name:'Tesla Supercharger',speed:'150–250 kW',desc:'Tesla ultra-fast DC network using Type 2 in India. Exclusive to Tesla vehicles only.',tags:['Tesla Model 3','Tesla Model Y','Tesla Model S','Tesla Model X'],price:'₹6/kWh',stations:48},
+];
+
+let map,userLat=28.6139,userLng=77.2090,userMarker,stationMarkers=[],activeFilter='all',selectedStation=-1,typeFilter='all',walletBalance=480;
+
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([userLat,userLng],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  addStationMarkers();
+  addUserMarker(userLat,userLng);
+  renderStationList();
+}
+function mkIcon(cls){return L.divIcon({className:'',html:`<div class="${cls}"></div>`,iconSize:[14,14],iconAnchor:[7,7]})}
+function addStationMarkers(){
+  stationMarkers.forEach(m=>map.removeLayer(m));stationMarkers=[];
+  const cls={g:'custom-marker',y:'custom-marker busy',r:'custom-marker full'};
+  STATIONS.forEach(s=>{
+    if(!stVisible(s))return;
+    const m=L.marker([s.lat,s.lng],{icon:mkIcon(cls[s.status])}).addTo(map);
+    m.bindPopup(()=>{
+      const col={g:'var(--accent)',y:'var(--warn)',r:'var(--danger)'}[s.status];
+      const avail=s.status==='r'?'Full':s.avail+'/'+s.total+' free';
+      return `<div class="pp-h">⚡ ${s.name}</div>
+        <div class="pp-row"><span class="pl">Address</span><span class="pr">${s.addr}</span></div>
+        <div class="pp-row"><span class="pl">Type</span><span class="pr">${s.types.join(', ')}</span></div>
+        <div class="pp-row"><span class="pl">Speed</span><span class="pr">${s.speed}</span></div>
+        <div class="pp-row"><span class="pl">Price</span><span class="pr">${s.price}</span></div>
+        <div class="pp-row"><span class="pl">Status</span><span class="pr" style="color:${col}">${avail}</span></div>
+        <button class="pp-nav" onclick="navigateTo(${s.id})">Open in Google Maps →</button>`;
+    });
+    stationMarkers.push(m);
+  });
+}
+function addUserMarker(lat,lng){
+  if(userMarker)map.removeLayer(userMarker);
+  userMarker=L.marker([lat,lng],{icon:mkIcon('my-marker')}).addTo(map).bindPopup('<b style="color:#ddeeff">📍 You are here</b>');
+}
+function stVisible(s){return activeFilter==='all'||s.filter.includes(activeFilter)}
+function applyFilter(el,f){
+  activeFilter=f;
+  document.querySelectorAll('.filter-row .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  addStationMarkers();renderStationList();
+}
+function renderStationList(){
+  const list=document.getElementById('stationList');
+  const vis=STATIONS.filter(stVisible);
+  if(!vis.length){list.innerHTML='<div class="no-results">No stations match this filter.</div>';return}
+  list.innerHTML=vis.map(s=>{
+    const colC={g:'avail-g',y:'avail-y',r:'avail-r'}[s.status];
+    const dotC={g:'dot-g',y:'dot-y',r:'dot-r'}[s.status];
+    const lbl=s.status==='g'?s.avail+' available':s.status==='y'?s.avail+' left':'Full';
+    return`<div class="st-card ${selectedStation===s.id?'sel':''}" onclick="selectStation(${s.id})">
+      <div><div class="st-name">⚡ ${s.name}</div>
+        <div class="st-meta">${s.addr}</div>
+        <div class="st-meta">${s.types.join(', ')} · ${s.speed} · ${s.price}</div></div>
+      <div class="st-right">
+        <div class="avail ${colC}"><span class="dot ${dotC}"></span>${lbl}</div>
+        <button class="nav-btn" onclick="event.stopPropagation();navigateTo(${s.id})">Navigate →</button>
+      </div></div>`;
+  }).join('');
+}
+function selectStation(id){
+  selectedStation=id;renderStationList();
+  const s=STATIONS.find(x=>x.id===id);
+  map.setView([s.lat,s.lng],15);
+  const col={g:'var(--accent)',y:'var(--warn)',r:'var(--danger)'}[s.status];
+  const avail=s.status==='r'?'Full':s.avail+' / '+s.total;
+  document.getElementById('stPopup').innerHTML=`<div class="popup-h">⚡ ${s.name}</div>
+    <div class="popup-row"><span class="popup-label">Address</span><span class="popup-val">${s.addr}</span></div>
+    <div class="popup-row"><span class="popup-label">Connectors</span><span class="popup-val">${s.types.join(', ')}</span></div>
+    <div class="popup-row"><span class="popup-label">Speed</span><span class="popup-val">${s.speed}</span></div>
+    <div class="popup-row"><span class="popup-label">Price</span><span class="popup-val">${s.price}</span></div>
+    <div class="popup-row"><span class="popup-label">Available</span><span class="popup-val" style="color:${col}">${avail}</span></div>
+    <div class="popup-row"><span class="popup-label">Free Parking</span><span class="popup-val">${s.parking?'✅ Yes':'❌ No'}</span></div>
+    <button class="btn btn-green" style="margin-top:12px;padding:10px" onclick="navigateTo(${s.id})">Open in Google Maps →</button>`;
+  document.getElementById('stPopup').classList.add('show');
+}
+function navigateTo(id){
+  const s=STATIONS.find(x=>x.id===id);
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=driving`,'_blank');
+  toast('Opening Google Maps…');
+}
+function getMyLocation(){
+  if(!navigator.geolocation){toast('Geolocation not supported','err');return}
+  toast('Getting your location…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    userLat=pos.coords.latitude;userLng=pos.coords.longitude;
+    addUserMarker(userLat,userLng);map.setView([userLat,userLng],14);
+    toast('📍 Location updated!');
+  },()=>toast('Could not get location. Allow GPS in browser.','err'));
+}
+function searchLocation(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q)return;
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`)
+    .then(r=>r.json())
+    .then(data=>{
+      if(!data.length){toast('Location not found. Try another search.','err');return}
+      const lat=parseFloat(data[0].lat),lng=parseFloat(data[0].lon);
+      map.setView([lat,lng],14);addUserMarker(lat,lng);
+      toast('📍 Moved to '+data[0].display_name.split(',').slice(0,2).join(', '));
+    }).catch(()=>toast('Search failed. Check connection.','err'));
+}
+
+// SOS
+function triggerSOS(){
+  document.getElementById('sosBox').classList.add('show');
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(p=>{
+      document.getElementById('sosGPS').textContent=`GPS: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)} · Battery: ${document.getElementById('battPct').textContent}`;
+    },()=>{document.getElementById('sosGPS').textContent='GPS unavailable — using last known location'});
+  }
+  toast('🚨 SOS Signal Sent!','err');
+}
+function saveContact(){
+  const name=document.getElementById('ecName').value.trim();
+  const phone=document.getElementById('ecPhone').value.trim();
+  if(!name||!phone){toast('Please enter name and phone number','err');return}
+  document.getElementById('contact1Name').textContent=name;
+  document.getElementById('contact1Num').textContent=phone;
+  document.getElementById('ecName').value='';document.getElementById('ecPhone').value='';
+  toast('✅ Contact saved!');
+}
+function fakeCall(name,num){toast(`📞 Calling ${name} (${num})…`)}
+
+// PAYMENT
+function fmtCard(el){
+  let v=el.value.replace(/\D/g,'').slice(0,16);
+  el.value=v.match(/.{1,4}/g)?.join(' ')||v;
+  const p=v.padEnd(16,'•').match(/.{4}/g);
+  document.getElementById('dispNum').innerHTML=p.join('&nbsp;&nbsp;');
+  document.getElementById('dispBrand').textContent=v[0]==='4'?'VISA':v[0]==='5'?'MC':v[0]==='3'?'AMEX':'VISA';
+}
+function fmtExpiry(el){
+  let v=el.value.replace(/\D/g,'');
+  if(v.length>=3)v=v.slice(0,2)+'/'+v.slice(2,4);
+  el.value=v;document.getElementById('dispExp').textContent=v||'MM/YY';
+}
+function calcTotal(){
+  const mins=parseInt(document.getElementById('chargeMins').value)||0;
+  const sess=mins*4,fast=Math.round(mins*2),total=sess+fast+5;
+  document.getElementById('sumMins').textContent=mins;
+  document.getElementById('sumSession').textContent='₹'+sess.toFixed(2);
+  document.getElementById('sumFast').textContent='₹'+fast.toFixed(2);
+  document.getElementById('sumTotal').textContent='₹'+total.toFixed(2);
+  document.getElementById('payBtnAmt').textContent='₹'+total.toFixed(2);
+}
+function switchPayTab(el,tab){
+  document.querySelectorAll('.pay-tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');
+  document.querySelectorAll('.pay-section').forEach(s=>s.classList.remove('show'));
+  document.getElementById('sec-'+tab).classList.add('show');
+}
+function addWalletMoney(){
+  const amt=parseInt(document.getElementById('addMoney').value)||0;
+  if(amt<50){toast('Minimum add ₹50','err');return}
+  walletBalance+=amt;document.getElementById('walletBal').textContent='₹'+walletBalance.toFixed(2);
+  document.getElementById('addMoney').value='';toast('₹'+amt+' added to wallet!');
+}
+function processPayment(){
+  const total=document.getElementById('sumTotal').textContent;
+  const mins=document.getElementById('chargeMins').value;
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+', '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const div=document.createElement('div');div.className='tx-item';
+  div.innerHTML=`<div class="tx-left"><div class="tx-icon" style="background:rgba(0,217,139,.1)">⚡</div><div><div class="tx-name">New Session — ${mins} min</div><div class="tx-date">${dateStr}</div></div></div><div class="tx-amt">${total}</div>`;
+  document.getElementById('txList').prepend(div);
+  toast('✅ Payment '+total+' successful!');
+}
+
+// CHARGER TYPES
+function renderChargers(){
+  document.getElementById('chargerGrid').innerHTML=CHARGER_TYPES.map(c=>{
+    const vis=typeFilter==='all'||c.cat.includes(typeFilter);
+    return`<div class="charger-card ${vis?'':'hide'}">
+      <div class="ch-badge">${c.icon} ${c.key.toUpperCase()}</div>
+      <div class="ch-name">${c.name}</div>
+      <div class="ch-speed">⚡ ${c.speed}</div>
+      <div class="ch-desc">${c.desc}</div>
+      <div class="ch-tags">${c.tags.map(t=>`<span class="ch-tag">${t}</span>`).join('')}</div>
+      <div class="ch-footer"><span class="ch-price">${c.price}</span><span class="ch-avail">${c.stations} stations</span></div>
+    </div>`;
+  }).join('');
+}
+function filterType(el,f){
+  typeFilter=f;
+  document.querySelectorAll('#typeFilter .chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');
+  renderChargers();
+}
+
+// NAV
+function goPage(page,tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pg-'+page).classList.add('active');tab.classList.add('active');
+  if(page==='stations'&&map)setTimeout(()=>map.invalidateSize(),120);
+}
+
+// TOAST
+function toast(msg,type){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.className='toast'+(type==='err'?' err':'')+' show';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// BATTERY TICK
+let batt=72;
+setInterval(()=>{batt=Math.max(5,batt-0.05);document.getElementById('battBar').style.setProperty('--pct',batt.toFixed(1)+'%');document.getElementById('battPct').textContent=batt.toFixed(0)+'%'},3000);
+
+window.addEventListener('DOMContentLoaded',()=>{initMap();renderChargers();calcTotal()});
+</script>
+</body>
+</html>
